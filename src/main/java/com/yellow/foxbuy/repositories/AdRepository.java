@@ -8,19 +8,19 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
-import java.util.UUID;
 
 @Repository
-public interface AdRepository extends JpaRepository<Ad,Long> {
+public interface AdRepository extends JpaRepository<Ad, Long> {
     List<Ad> findAllByCategoryId(Long id);
+
     List<Ad> findAllByCategoryIdAndHiddenIsFalse(Long id);
+
     List<Ad> findAllByUserUsername(String username);
-    Page<Ad> findByCategoryId(Long categoryId, Pageable pageable);
 
     Page<Ad> findByCategoryIdAndHiddenIsFalse(Long categoryId, Pageable pageable);
 
-    long countByCategoryId (Long id);
-    List<Ad> findAllByUserId(UUID uuid);
+    long countByCategoryId(Long id);
+
     List<Ad> findAllByUserAndHiddenIsTrue(User user);
 }
 

@@ -26,12 +26,16 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException)
             throws IOException, ServletException, ExpiredJwtException {
-        RestError re = new RestError(HttpStatus.UNAUTHORIZED.toString(), authException.getMessage());
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-        OutputStream responseStream = response.getOutputStream();
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.writeValue(responseStream, re);
-        responseStream.flush();
+//        System.out.println(request.getAuthType());
+//        System.out.println(authException.getMessage());
+//        System.out.println(authException.getLocalizedMessage());
+//        System.out.println(authException.toString());
+//        RestError re = new RestError(HttpStatus.UNAUTHORIZED.toString(), authException.getMessage());
+//        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+//        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+//        OutputStream responseStream = response.getOutputStream();
+//        ObjectMapper mapper = new ObjectMapper();
+//        mapper.writeValue(responseStream, re);
+//        responseStream.flush();
     }
 }

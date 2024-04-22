@@ -37,7 +37,6 @@ public class UserController {
         this.logService = logService;
     }
 
-
     @PostMapping("/registration")
     @Operation(summary = "Register a new user", description = "Register a new user with username, email and password.")
     @ApiResponse(responseCode = "200", description = "User created successfully.")
