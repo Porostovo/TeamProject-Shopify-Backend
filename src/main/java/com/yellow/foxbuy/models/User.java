@@ -8,16 +8,17 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-
 import java.time.LocalDateTime;
 import java.util.*;
+
+import java.time.LocalDateTime;
 
 @Setter
 @Getter
 @NoArgsConstructor
 @Entity
-@Table(name = "user_details")
-public class User implements UserDetails {
+@Table(name="user_details")
+public class  User implements UserDetails {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -27,7 +28,7 @@ public class User implements UserDetails {
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
     private ConfirmationToken token;
     private Boolean verified;
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "user",  cascade = CascadeType.ALL)
     private List<Ad> ads = new ArrayList<>();
     @ManyToMany
     @JoinTable(name = "user_roles",
@@ -37,6 +38,8 @@ public class User implements UserDetails {
     private String fullName;
     private String address;
     private String customerId;
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    private List<Watchdog> watchdog = new ArrayList<>();
     private LocalDateTime banned;
     private String refreshToken;
 
@@ -47,8 +50,7 @@ public class User implements UserDetails {
         this.verified = false;
         this.banned = null;
     }
-
-    public User(String username, String email, String password, Set<Role> roles) {
+    public User(String username, String email, String password, Set<Role> roles  ) {
         this.username = username;
         this.email = email;
         this.password = password;
@@ -85,7 +87,7 @@ public class User implements UserDetails {
         return false;
     }
 
-    public String getRole() {
+    public String getRole(){
         String userRole = "";
         for (Role role : roles) {
             userRole = role.getName();
