@@ -15,3 +15,16 @@ Team project for creating a marketplace backend web application. Still uder deve
 - **Java Code Coverage with Jacoco:** Measuring and reporting code coverage for Java code.
 - **CI/CD with Git Actions:** Automating build and deployment processes using GIT ACTIONS.
 - **Endpoint Logs:** Logging endpoint activities for tracking and debugging.
+
+## To run the application, you need to set Environement variables:
+for MySQL database:
+DB_PASSWORD;
+DB_USERNAME;
+
+for MailTrap:
+EMAIL_PASSWORD;
+EMAIL_USERNAME;
+
+EMAIL_VERIFICATION; (on, off)
+JWT_SECRET_KEY;
+STRIPE_APIKEY;
