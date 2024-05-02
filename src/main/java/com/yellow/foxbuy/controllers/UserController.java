@@ -1,11 +1,11 @@
 package com.yellow.foxbuy.controllers;
 
-import com.yellow.foxbuy.models.DTOs.AuthResponseDTO;
-import com.yellow.foxbuy.models.DTOs.LoginRequest;
-import com.yellow.foxbuy.models.DTOs.RefreshTokenDTO;
-import com.yellow.foxbuy.models.DTOs.UserDTO;
+import com.yellow.foxbuy.config.SecurityConfig;
+import com.yellow.foxbuy.models.DTOs.*;
+import com.yellow.foxbuy.models.Rating;
 import com.yellow.foxbuy.models.User;
 import com.yellow.foxbuy.services.*;
+import com.yellow.foxbuy.utils.JwtUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.mail.MessagingException;
@@ -16,9 +16,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @RestController
 public class UserController {
@@ -26,17 +24,21 @@ public class UserController {
     private final AuthenticationService authenticationService;
     private final ConfirmationTokenService confirmationTokenService;
     private final LogService logService;
+    private final JwtUtil jwtUtil;
+    private final RatingService ratingService;
 
     @Autowired
     public UserController(UserService userService,
                           ConfirmationTokenService confirmationTokenService,
-                          AuthenticationService authenticationService, LogService logService) {
+                          AuthenticationService authenticationService, LogService logService,
+                          RatingService ratingService, JwtUtil jwtUtil) {
         this.userService = userService;
         this.confirmationTokenService = confirmationTokenService;
         this.authenticationService = authenticationService;
         this.logService = logService;
+        this.jwtUtil = jwtUtil;
+        this.ratingService = ratingService;
     }
-
 
     @PostMapping("/registration")
     @Operation(summary = "Register a new user", description = "Register a new user with username, email and password.")
@@ -50,10 +52,11 @@ public class UserController {
         }
 
         if (userService.existsByUsername(userDTO.getUsername()) || userService.existsByEmail(userDTO.getEmail())) {
-            return ResponseEntity.status(400).body(authenticationService.badRegisterUser(userDTO));
+            logService.addLog("POST /registration", "ERROR", userDTO.toString());
+            return ResponseEntity.status(400).body(authenticationService.registerUserFailed(userDTO));
         } else {
             logService.addLog("POST /registration", "INFO", userDTO.toString());
-            return ResponseEntity.status(200).body(authenticationService.goodRegisterUser(userDTO));
+            return ResponseEntity.status(200).body(authenticationService.registerUserSuccessful(userDTO));
         }
     }
 
@@ -63,12 +66,18 @@ public class UserController {
     @ApiResponse(responseCode = "400", description = "Invalid input or user is not verified.")
     public ResponseEntity<?> userLoginAndGenerateJWToken(@Valid @RequestBody LoginRequest loginRequest,
                                                          BindingResult bindingResult) {
-
         if (bindingResult.hasErrors()) {
             logService.addLog("POST /login", "ERROR", loginRequest.toString());
             return ErrorsHandling.handleValidationErrors(bindingResult);
         }
-        return authenticationService.authenticateUser(loginRequest);
+        User user = userService.findByUsername(loginRequest.getUsername()).orElse(null);
+        if (user == null || user.getVerified() == null || !user.getVerified() || user.getBanned() != null ||
+                !SecurityConfig.passwordEncoder().matches(loginRequest.getPassword(), user.getPassword())) {
+            logService.addLog("POST /login", "ERROR", loginRequest.toString());
+            return ResponseEntity.status(400).body(authenticationService.loginUserFailed(loginRequest));
+        }
+        logService.addLog("POST /login", "INFO", loginRequest.toString());
+        return ResponseEntity.status(200).body(authenticationService.loginUserSuccessful(loginRequest));
     }
 
     @GetMapping(path = "/confirm")
@@ -90,13 +99,17 @@ public class UserController {
             logService.addLog("POST /indentity", "ERROR", "token = " + authResponseDTO.toString());
             return ErrorsHandling.handleValidationErrors(bindingResult);
         }
-        return authenticationService.verifyJwtToken(authResponseDTO.getToken());
-    }
-
-    @GetMapping(path = "/test")
-    @Operation(summary = "Endpoint for testing", description = "Testing endpoint.")
-    public Authentication confirm(Authentication authentication) {
-        return authentication;
+        if (!jwtUtil.validateToken(authResponseDTO.getToken())) {
+            logService.addLog("POST /indentity", "ERROR", "token = " + authResponseDTO.getToken());
+            return ResponseEntity.status(400).body(authenticationService.verifyJwtTokenFailed(authResponseDTO.getToken()));
+        }
+        String jwtName = jwtUtil.getUsernameFromJWT(authResponseDTO.getToken());
+        if (userService.findByUsername(jwtName).isEmpty()) {
+            logService.addLog("POST /indentity", "ERROR", "token = " + authResponseDTO.getToken());
+            return ResponseEntity.status(400).body(authenticationService.verifyJwtTokenFailed(authResponseDTO.getToken()));
+        }
+        logService.addLog("POST /indentity", "INFO", "token = " + authResponseDTO.getToken());
+        return ResponseEntity.status(200).body(authenticationService.verifyJwtTokenSuccessful(authResponseDTO.getToken()));
     }
 
     @GetMapping("/user/{id}")
@@ -163,6 +176,46 @@ public class UserController {
         result.put("jwtToken", jwtToken);
         result.put("refreshToken", refreshTOkenDTO.getRefreshToken());
         return ResponseEntity.status(200).body(result);
+    }
+    @GetMapping("/user/{id}/rating")
+    @Operation(summary = "Get ratings of user", description = "Get ratings of specific user. Shows rating id, message, possible response and who gave the rating.")
+    @ApiResponse(responseCode = "200", description = "Rating list returned")
+    @ApiResponse(responseCode = "400", description = "Error in returning ratings for specific user")
+    public ResponseEntity<?> userRatings(@PathVariable UUID id ){
+        return ratingService.getUserRatings(id);
+    }
+    @PostMapping("/user/{id}/rating")
+    @Operation(summary = "Post rating to user", description = "Send rating to a user. Need uuid of target user, json body with rating and comment. Returns back the rating sent with id.")
+    @ApiResponse(responseCode = "200", description = "Rating has been uploaded")
+    @ApiResponse(responseCode = "400", description = "Error in posting the rating")
+    public ResponseEntity<?> userRatingPost(@PathVariable UUID id, @Valid @RequestBody RatingDTO ratingDTO,
+                                            BindingResult bindingResult, Authentication authentication) throws MessagingException {
+        if (bindingResult.hasErrors()) {
+            logService.addLog("POST /user/{id}/rating", "ERROR", ratingDTO.toString());
+            return ErrorsHandling.handleValidationErrors(bindingResult);
+        }
+        return ratingService.rateUser(id,
+                authentication.getName(), ratingDTO.getComment(), ratingDTO.getRating());
+    }
+    @DeleteMapping("/user/{id}/rating/{ratingId}")
+    @Operation(summary = "Delete one specific rating", description = "Delete rating of uuid user. Need target user uuid and id of rating. Returns back the deleted rating data.")
+    @ApiResponse(responseCode = "200", description = "Rating has been deleted")
+    @ApiResponse(responseCode = "400", description = "Error in deleting rating")
+    public ResponseEntity<?> userRatingDelete(@PathVariable UUID id, @PathVariable Long ratingId,
+                                              Authentication authentication){
+        return ratingService.deleteComment(id, authentication.getName(), ratingId);
+    }
+    @PostMapping("/user/rating/{id}")
+    @Operation(summary = "Respond to a rating from other user to you", description = "Post response to specific rating. Need only rating id. Only owner of the rating or admin can delete the rating.")
+    @ApiResponse(responseCode = "200", description = "Rating has been uploaded")
+    @ApiResponse(responseCode = "400", description = "Error in posting the rating")
+    public ResponseEntity<?> userRatingResponse(@PathVariable Long id, Authentication authentication,
+                                                @Valid @RequestBody RatingResponseDTO ratingResponseDTO, BindingResult bindingResult){
+        if (bindingResult.hasErrors()) {
+            logService.addLog("POST /user/rating/{id}", "ERROR", ratingResponseDTO.toString());
+            return ErrorsHandling.handleValidationErrors(bindingResult);
+        }
+        return ratingService.respondToComment(ratingResponseDTO.getReaction(), authentication.getName(), id);
     }
 }
 

@@ -42,7 +42,7 @@ public class EmailServiceImp implements EmailService {
         MimeMessage message = emailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
-        helper.setFrom("noreply@baeldung.com");
+        helper.setFrom("yellow-team@foxbuy.com");
         helper.setTo(to);
         helper.setSubject(subject);
         helper.setText(text, true);
@@ -75,7 +75,7 @@ public class EmailServiceImp implements EmailService {
                 "Thank you for using our FOX BUY application.\n" +
                 "Sincerely Your Yellow team";
 
-        helper.setFrom("noreply@baeldung.com");
+        helper.setFrom("yellow-team@foxbuy.com");
         helper.setTo(to);
         helper.setSubject(subject);
         helper.setText(text, true);
@@ -91,7 +91,8 @@ public class EmailServiceImp implements EmailService {
     public void sendMessageToSeller(Authentication authentication, Long id, String message) throws MessagingException {
         User user = userRepository.findByUsername(authentication.getName()).get();
         Ad ad = adRepository.findById(id).get();
-        String message1 = message + "<br/><br/>" + "You can reply to Sender at: " + user.getEmail();
+        String message1 = "Dear Seller" + "<br/><br/>" + user.getUsername() + " is sending you this message: <br/><br/>"
+                +  message + "<br/><br/>" + "You can reply to "+user.getUsername()+" at: " + user.getEmail();
         sendSimpleMessage(ad.getUser().getEmail(), ad.getTitle(), message1);
     }
 
@@ -103,12 +104,19 @@ public class EmailServiceImp implements EmailService {
 
         String subject = "The ad you were interested in has been created";
         String text = "Hello, recently you set up a watchdog on specific category up to certain price.\n Just before a few moments the ad was created. Look into FOX BUY application";
-        helper.setFrom("noreply@baeldung.com");
+        helper.setFrom("yellow-team@foxbuy.com");
         String emailString = String.join(", ", userEmails);
         helper.setTo(emailString);
         helper.setSubject(subject);
         helper.setText(text, true);
 
         emailSender.send(message);
+    }
+
+    @Override
+    public void sendRatingNotification(User user) throws MessagingException {
+        String email = "Congratulation! \n" +"You have been rated by other user!";
+
+        sendSimpleMessage(user.getEmail(), "You have a new rating!", email);
     }
 }
