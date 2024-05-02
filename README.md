@@ -1,5 +1,6 @@
-# TeamProject-Shopify-Backend
-Team project for creating a marketplace backend web application. Still uder development.
+# Welcome to our Marketplace Backend Web Application Project!
+Our team is creating a marketplace backend web application as part of our learning journey. Currently in active development, we're eager to share our progress and features with you.
+
 
 ## Implemented Features:
 
